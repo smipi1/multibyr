@@ -1,0 +1,30 @@
+{
+  "name": "multibyr",
+  "version": "0.0.1",
+  "description": "Multibyr (MULTIpart BY Route) is a node.js module for strictly handling `multipart/form-data` on a route-by-route basis",
+  "main": "multibyr.js",
+  "scripts": {
+    "test": "mocha --require test/support/env --reporter dot --check-leaks test/ test/acceptance/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smipi1/multibyr.git"
+  },
+  "keywords": [
+    "form",
+    "post",
+    "multipart",
+    "form-data",
+    "connect",
+    "express"
+  ],
+  "author": "Pieter Smith",
+  "license": "GPLv2",
+  "bugs": {
+    "url": "https://github.com/smipi1/multibyr/issues"
+  },
+  "homepage": "https://github.com/smipi1/multibyr",
+  "dependencies": {
+    "busboy": "^0.2.7"
+  }
+}
