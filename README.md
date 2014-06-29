@@ -14,7 +14,41 @@ Please note that [Multibyr](https://github.com/smipi1/multibyr) is *not middlewa
 #### Usage
 
 ```js
-// TBD
+var express = require('express');
+var multibyr = require('multibyr');
+var fs = require('fs');
+var port = 3000;
+
+var app = express();
+
+function deleteUploadedFiles(files) {
+  for(var i in files) {
+    if(files.hasOwnProperty(i)) {
+      try {
+        fs.unlinkSync(files[i].path);
+      } catch(e) {
+        // Don't care if the file doesn't exist
+      }
+    }
+  }
+}
+
+var processFilesMultipart = multibyr({ dest: "uploads" });
+
+app.post('/api/content/files', function(req, res) {
+  return processFilesMultipart(req, res, function(err, files) {
+    if(err) {
+      if(files) {
+        deleteUploadedFiles(files);
+      }
+      return res.json(400, err);
+    }
+    res.json(200, files);
+  });
+});
+
+app.listen(port);
+console.log('Listening on ' + port);
 ```
 
 ## License (GPLv2)
