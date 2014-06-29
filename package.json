@@ -1,6 +1,6 @@
 {
   "name": "multibyr",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Multibyr (MULTIpart BY Route) is a node.js module for strictly handling `multipart/form-data` on a route-by-route basis",
   "main": "multibyr.js",
   "scripts": {
