@@ -120,6 +120,10 @@ getDestFilename: function (fieldname, filename) {
 }
 ```
 
+## Acknowledgements
+
+Thanks to Hage Yaapa <[http://www.hacksparrow.com](http://www.hacksparrow.com)>, for writing [Multer](https://github.com/expressjs/multer), which was the inspiration for writing this node module.
+
 ## License (GPLv2)
 Copyright (c) 2014 Pieter Smith <https://github.com/smipi1>
 
