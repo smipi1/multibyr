@@ -33,10 +33,9 @@ function deleteUploadedFiles(files) {
   }
 }
 
-var processFilesMultipart = multibyr({ dest: "uploads" });
-
 app.post('/api/content/files', function(req, res) {
-  return processFilesMultipart(req, res, function(err, files) {
+  var parser = multibyr({ dest: "uploads" });
+  return parser(req, res, function(err, files) {
     if(err) {
       if(files) {
         deleteUploadedFiles(files);
@@ -49,6 +48,76 @@ app.post('/api/content/files', function(req, res) {
 
 app.listen(port);
 console.log('Listening on ' + port);
+```
+
+**IMPORTANT**: [Multibyr](https://github.com/smipi1/multibyr) will only process a form with `multipart/form-data` content, submitted with the `POST` or `PUT` methods. An unsupported method will throw an exception. Unsupported content type will result in `err` being set.
+
+## Multibyr file object
+
+A [Multibyr](https://github.com/smipi1/multibyr) file object is a JSON object with the following properties.
+
+* `fieldname` - Field name specified in the form
+* `originalname` - Name of the file on the user's computer
+* `name` - Renamed file name
+* `encoding` - Encoding type of the file
+* `mimetype` - Mime type of the file
+* `path` - Location of the uploaded file
+* `extension` - Extension of the file
+* `size` - Size of the file in bytes
+* `truncated` - Set to true if a file size limitation was reached
+
+## Options
+
+[Multibyr](https://github.com/smipi1/multibyr) accepts an `options` object. Usually the `options` object specifies at least a `dest` property which defines the upload destination directory. If no `options` or `dest` property is specified, the temporary directory of the system is used. If the `dest` directory does not exist, an exception is thrown.
+
+**IMPORTANT**: Do not share the `options` object with between [Multibyr](https://github.com/smipi1/multibyr) instances. The `options` object is modified during parsing which will lead subtle bugs if shared.
+
+By default [Multibyr](https://github.com/smipi1/multibyr) renames uploaded files using an MD5 hash with the original extension to avoid naming conflicts. This behavior can be overridden by setting the `getDestFilename` to a function of your choosing.
+
+The following options can be passed to [Multibyr](https://github.com/smipi1/multibyr):
+
+* `dest` - The upload destination directory
+* `limits` - Refer to the [Busboy limits object](https://github.com/mscdex/busboy#busboy-methods)
+* `getDestFilename` - A function that returns the destination filename with the prototype `function(fieldname, filename)`
+
+On top of these, [Multibyr](https://github.com/smipi1/multibyr) supports all [advanced Busboy config](https://github.com/mscdex/busboy#busboy-methods) properties via the `options` object.
+
+### limits
+
+An object specifying the size limits of the following optional properties.
+
+* `fieldNameSize` - integer - Max field name size (Default: 100 bytes)
+* `fieldSize` - integer - Max field value size (Default: 1MB)
+* `fields` - integer - Max number of non-file fields (Default: Infinity)
+* `fileSize` - integer - For multipart forms, the max file size (Default: Infinity)
+* `files` - integer - For multipart forms, the max number of file fields (Default: Infinity)
+* `parts` - integer - For multipart forms, the max number of parts (fields + files) (Default: Infinity)
+* `headerPairs` - integer - For multipart forms, the max number of header key=>value pairs to parse Default: 2000 (same as node's http).
+
+For more information, refer to the [Busboy limits object](https://github.com/mscdex/busboy#busboy-methods)
+
+Example:
+
+```js
+limits: {
+  fieldNameSize: 100,
+  files: 2,
+  fields: 5
+}
+```
+
+Specifying the limits can help protect your site against denial of service (DoS) attacks.
+
+### getDestFilename(fieldname, filename)
+
+Function to determine the uploaded filename. Whatever the function returns will become the new name of the uploaded file (excluding extension).
+
+Example:
+
+```js
+getDestFilename: function (fieldname, filename) {
+  return fieldname + '_' + filename + '_' + Date.now();
+}
 ```
 
 ## License (GPLv2)

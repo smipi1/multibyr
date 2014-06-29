@@ -29,7 +29,7 @@ module.exports = function(options) {
   
   throwOnInvalidOptions(options);
 
-  options.generateFilename = options.generateFilename || function(fieldname, filename) {
+  options.getDestFilename = options.getDestFilename || function(fieldname, filename) {
     var randomString = fieldname + filename + Date.now() + Math.random();
     return crypto.createHash("md5").update(randomString).digest("hex");
   };
@@ -82,7 +82,7 @@ module.exports = function(options) {
       }
 
       ext = '.' + filename.split('.').slice(-1)[0];
-      newFilename = options.generateFilename(fieldname, filename.replace(ext, '')) + ext;
+      newFilename = options.getDestFilename(fieldname, filename.replace(ext, '')) + ext;
       newFilePath = path.join(options.dest, newFilename);
 
       var file = {
