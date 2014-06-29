@@ -38,7 +38,7 @@ module.exports = function(options) {
     
     throwOnUnsupportedMethod(req);
 
-    if(!req.headers["content-type"]) {
+    if(!req.headers.hasOwnProperty("content-type")) {
       return cb({ req: { "content-type" : "missing" } }, null);
     }
     
