@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/smipi1/multibyr/issues"
   },
-  "homepage": "https://github.com/smipi1/multibyr"
+  "homepage": "https://github.com/smipi1/multibyr",
+  "dependencies": {
+    "busboy": "^0.2.7"
+  }
 }
