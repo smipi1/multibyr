@@ -4,54 +4,58 @@ var path = require('path');
 var crypto = require('crypto');
 var Busboy = require('busboy');
 
-function throwOnInvalidOptions(options) {
-  fs.stat(options.dest, function(err, stats) {
+function getDestFilename(fieldname, filename) {
+  var randomString = fieldname + filename + Date.now() + Math.random();
+  return crypto.createHash("md5").update(randomString).digest("hex");
+};
+
+function Multibyr(opts) {
+  if (!(this instanceof Multibyr)) {
+    return new Multibyr(opts);
+  }
+
+  this.opts = opts || {};
+  this.opts.dest = opts.dest || os.tmpdir();
+
+  this.opts.getDestFilename = opts.getDestFilename || getDestFilename;
+};
+
+Multibyr.prototype.parse = function(req, res, cb) {
+  if(!req.hasOwnProperty('method')) {
+    return cb({ req: { method : "missing" } }, null);
+  }
+  
+  if((req.method !== "POST") && (req.method !== "PUT")) {
+    return cb({ req: { method : req.method + "not supported" } }, null);
+  }
+    
+  if(!req.hasOwnProperty('headers')) {
+    return cb({ req: { "headers" : "missing" } }, null);
+  }
+  
+  if(!req.headers.hasOwnProperty("content-type")) {
+    return cb({ req: { headers: { "content-type" : "missing" } } }, null);
+  }
+  
+  if(req.headers["content-type"].indexOf("multipart/form-data") !== 0) {
+    return cb({ req: { headers: { "content-type" : { "multipart/form-data" : "missing" } } } }, null);
+  }
+  
+  var opts = this.opts;
+
+  return fs.stat(opts.dest, function(err, stats) {
     if(err) {
-      console.log(err);
-      throw err;
+      return cb({ opts: { dest: err } }, null);
     }
     if(!stats.isDirectory()) {
-      throw new Error(dest + " is not a directory");
+      return cb({ opts: { dest: opts.dest + " isn't a directory" } }, null);
     }
-  });
-}
-
-function throwOnUnsupportedMethod(req) {
-  if((req.method !== "POST") && (req.method !== "PUT")) {
-    throw new Error("Only POST and PUT supported");
-  }
-}
-
-module.exports = function(options) {
-
-  options = options || {};
-  options.dest = options.dest || os.tmpdir();
-  
-  throwOnInvalidOptions(options);
-
-  options.getDestFilename = options.getDestFilename || function(fieldname, filename) {
-    var randomString = fieldname + filename + Date.now() + Math.random();
-    return crypto.createHash("md5").update(randomString).digest("hex");
-  };
-
-  return function(req, res, cb) {
-    
-    throwOnUnsupportedMethod(req);
-
-    if(!req.headers.hasOwnProperty("content-type")) {
-      return cb({ req: { "content-type" : "missing" } }, null);
-    }
-    
-    if(req.headers["content-type"].indexOf("multipart/form-data") !== 0) {
-      return cb({ req: { "content-type" : { "multipart/form-data" : "missing" } } }, null);
-    }
-
     var files = {};
     req.body = req.body || {};
 
-    // Hand the options to busboy with headers
-    options.headers = req.headers;
-    var busboy = new Busboy(options);
+    // Hand the opts to busboy with headers
+    opts.headers = req.headers;
+    var busboy = new Busboy(opts);
 
     // handle text field data
     busboy.on('field', function(fieldname, val, valTruncated, keyTruncated) {
@@ -73,7 +77,7 @@ module.exports = function(options) {
 
     // handle files
     busboy.on('file', function(fieldname, readStream, filename, encoding, mimetype) {
-
+      
       var ext, newFilename, newFilePath;
 
       if (!filename) {
@@ -82,8 +86,8 @@ module.exports = function(options) {
       }
 
       ext = '.' + filename.split('.').slice(-1)[0];
-      newFilename = options.getDestFilename(fieldname, filename.replace(ext, '')) + ext;
-      newFilePath = path.join(options.dest, newFilename);
+      newFilename = opts.getDestFilename(fieldname, filename.replace(ext, '')) + ext;
+      newFilePath = path.join(opts.dest, newFilename);
 
       var file = {
         fieldname: fieldname,
@@ -147,5 +151,22 @@ module.exports = function(options) {
     });
 
     req.pipe(busboy);
-  };
+  });
 };
+
+Multibyr.prototype.discard = function(files) {
+  if(!files) {
+    return;
+  }
+  for(var i in files) {
+    if(files.hasOwnProperty(i)) {
+      try {
+        fs.unlinkSync(files[i].path);
+      } catch(e) {
+        // Don't care if the file doesn't exist
+      }
+    }
+  }
+};
+
+module.exports = Multibyr;
