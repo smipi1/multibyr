@@ -15,32 +15,17 @@ Please note that [Multibyr](https://github.com/smipi1/multibyr) is *not middlewa
 
 ```js
 var express = require('express');
-var multibyr = require('multibyr');
-var fs = require('fs');
+var Multibyr = require('multibyr');
 var port = 3000;
 
 var app = express();
 
-function deleteUploadedFiles(files) {
-  for(var i in files) {
-    if(files.hasOwnProperty(i)) {
-      try {
-        fs.unlinkSync(files[i].path);
-      } catch(e) {
-        // Don't care if the file doesn't exist
-      }
-    }
-  }
-}
-
 app.post('/api/content/files', function(req, res) {
-  var parser = multibyr({ dest: "uploads" });
-  return parser(req, res, function(err, files) {
+  var multibyr = Multibyr({ dest: "uploads" });
+  return multibyr.parse(req, res, function(err, files) {
     if(err) {
-      if(files) {
-        deleteUploadedFiles(files);
-      }
-      return res.json(400, err);
+      multibyr.discard(files);
+      return res.json(400, {err: err, files: files});
     }
     res.json(200, files);
   });
@@ -50,37 +35,23 @@ app.listen(port);
 console.log('Listening on ' + port);
 ```
 
-**IMPORTANT**: [Multibyr](https://github.com/smipi1/multibyr) will only process a form with `multipart/form-data` content, submitted with the `POST` or `PUT` methods. An unsupported method will throw an exception. Unsupported content type will result in `err` being set.
-
-## Multibyr file object
-
-A [Multibyr](https://github.com/smipi1/multibyr) file object is a JSON object with the following properties.
-
-* `fieldname` - Field name specified in the form
-* `originalname` - Name of the file on the user's computer
-* `name` - Renamed file name
-* `encoding` - Encoding type of the file
-* `mimetype` - Mime type of the file
-* `path` - Location of the uploaded file
-* `extension` - Extension of the file
-* `size` - Size of the file in bytes
-* `truncated` - Set to true if a file size limitation was reached
+**IMPORTANT**: [Multibyr](https://github.com/smipi1/multibyr) `parse()` will only process a form with `multipart/form-data` content, submitted with the `POST` or `PUT` methods. If asked to parse an unsupported method or content type, the `err` will be set.
 
 ## Options
 
-[Multibyr](https://github.com/smipi1/multibyr) accepts an `options` object. Usually the `options` object specifies at least a `dest` property which defines the upload destination directory. If no `options` or `dest` property is specified, the temporary directory of the system is used. If the `dest` directory does not exist, an exception is thrown.
+[Multibyr](https://github.com/smipi1/multibyr) accepts an `opts` object. Usually the `opts` object specifies at least a `dest` property which defines the upload destination directory. If no `opts` or `dest` property is specified, the temporary directory of the system is used. If the `dest` directory does not exist, an exception is thrown.
 
-**IMPORTANT**: Do not share the `options` object with between [Multibyr](https://github.com/smipi1/multibyr) instances. The `options` object is modified during parsing which will lead subtle bugs if shared.
+**IMPORTANT**: Do not share the `opts` object with between [Multibyr](https://github.com/smipi1/multibyr) instances. The `opts` object is modified during parsing which will lead subtle bugs if shared.
 
 By default [Multibyr](https://github.com/smipi1/multibyr) renames uploaded files using an MD5 hash with the original extension to avoid naming conflicts. This behavior can be overridden by setting the `getDestFilename` to a function of your choosing.
 
-The following options can be passed to [Multibyr](https://github.com/smipi1/multibyr):
+The following `opts` can be passed to [Multibyr](https://github.com/smipi1/multibyr):
 
 * `dest` - The upload destination directory
 * `limits` - Refer to the [Busboy limits object](https://github.com/mscdex/busboy#busboy-methods)
 * `getDestFilename` - A function that returns the destination filename with the prototype `function(fieldname, filename)`
 
-On top of these, [Multibyr](https://github.com/smipi1/multibyr) supports all [advanced Busboy config](https://github.com/mscdex/busboy#busboy-methods) properties via the `options` object.
+On top of these, [Multibyr](https://github.com/smipi1/multibyr) supports all [advanced Busboy config](https://github.com/mscdex/busboy#busboy-methods) properties via the `opts` object.
 
 ### limits
 
@@ -119,6 +90,34 @@ getDestFilename: function (fieldname, filename) {
   return fieldname + '_' + filename + '_' + Date.now();
 }
 ```
+
+## Objects
+
+### file object
+
+A [Multibyr](https://github.com/smipi1/multibyr) file object is a JSON object with the following properties.
+
+* `fieldname` - Field name specified in the form
+* `originalname` - Name of the file on the user's computer
+* `name` - Renamed file name
+* `encoding` - Encoding type of the file
+* `mimetype` - Mime type of the file
+* `path` - Location of the uploaded file
+* `extension` - Extension of the file
+* `size` - Size of the file in bytes
+* `truncated` - Set to true if a file size limitation was reached
+
+## Methods
+
+### parse(req, res, callback)
+
+Asynchronously parses the request. The callback gets two arguments `(err, files)`, where `files` is a list of `files` describing what was uploaded. If set, `err` indicates any errors.
+
+**IMPORTANT**: If `err` is set, some or partial files may still have been uploaded. It therefore is important to *always* handle the `files` object. If you do not want to process the `files` object on errors, use the `discard()` method.
+
+### discard(files)
+
+Synchronously discards all `files`.
 
 ## Acknowledgements
 
