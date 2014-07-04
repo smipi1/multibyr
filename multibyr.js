@@ -13,42 +13,56 @@ function Multibyr(opts) {
   if (!(this instanceof Multibyr)) {
     return new Multibyr(opts);
   }
-
+  
   this.opts = opts || {};
   this.opts.dest = opts.dest || os.tmpdir();
+  this.opts.hooks = {
+      newData: (opts.hooks && opts.hooks.newData) ? opts.hooks.newData : function(file, data) {},
+      endData: (opts.hooks && opts.hooks.endData) ? opts.hooks.endData : function(err, file) {},
+  };
 
   this.opts.getDestFilename = opts.getDestFilename || getDestFilename;
 };
 
 Multibyr.prototype.parse = function(req, res, cb) {
+  var callBack = cb;
+  
+  function callBackOnce(err, files) {
+    if(callBack) {
+      var cb = callBack;
+      callBack = null;
+      return cb(err, files);
+    }
+  }
+  
   if(!req.hasOwnProperty('method')) {
-    return cb({ req: { method : "missing" } }, null);
+    return callBackOnce({ req: { method : "missing" } }, null);
   }
   
   if((req.method !== "POST") && (req.method !== "PUT")) {
-    return cb({ req: { method : req.method + "not supported" } }, null);
+    return callBackOnce({ req: { method : req.method + "not supported" } }, null);
   }
     
   if(!req.hasOwnProperty('headers')) {
-    return cb({ req: { "headers" : "missing" } }, null);
+    return callBackOnce({ req: { "headers" : "missing" } }, null);
   }
   
   if(!req.headers.hasOwnProperty("content-type")) {
-    return cb({ req: { headers: { "content-type" : "missing" } } }, null);
+    return callBackOnce({ req: { headers: { "content-type" : "missing" } } }, null);
   }
   
   if(req.headers["content-type"].indexOf("multipart/form-data") !== 0) {
-    return cb({ req: { headers: { "content-type" : { "multipart/form-data" : "missing" } } } }, null);
+    return callBackOnce({ req: { headers: { "content-type" : { "multipart/form-data" : "missing" } } } }, null);
   }
   
   var opts = this.opts;
 
   return fs.stat(opts.dest, function(err, stats) {
     if(err) {
-      return cb({ opts: { dest: err } }, null);
+      return callBackOnce({ opts: { dest: err } }, null);
     }
     if(!stats.isDirectory()) {
-      return cb({ opts: { dest: opts.dest + " isn't a directory" } }, null);
+      return callBackOnce({ opts: { dest: opts.dest + " isn't a directory" } }, null);
     }
     var files = {};
     req.body = req.body || {};
@@ -98,8 +112,9 @@ Multibyr.prototype.parse = function(req, res, cb) {
         path: newFilePath,
         extension: (ext === null) ? null : ext.replace('.', ''),
         size: 0,
-        truncated: null
+        truncated: true
       };
+      files[fieldname] = file;
 
       var writeStream = fs.createWriteStream(newFilePath);
       readStream.pipe(writeStream);
@@ -108,37 +123,52 @@ Multibyr.prototype.parse = function(req, res, cb) {
         if (data) {
           file.size += data.length;
         }
+        opts.hooks.newData(file, data);
       });
+      
+      function finish(err) {
+        var nullStream = fs.createWriteStream("/dev/null");
+        readStream.pipe(nullStream);
+        readStream.unpipe(writeStream);
+        writeStream.end();
+        opts.hooks.endData(err);
+        if(err) {
+          callBackOnce(err, files);
+        }
+      }
 
       readStream.on('end', function() {
         file.truncated = readStream.truncated;
-        if (!files[fieldname]) {
-          files[fieldname] = [];
-        }
-        files[fieldname].push(file);
+        finish(null);
       });
 
       readStream.on('error', function(error) {
-        return cb({ readStream: error }, files);
+        file.truncated = true;
+        return finish({ readStream: error });
+      });
+      
+      readStream.on('limit', function(error) {
+        file.truncated = true;
+        return finish({ limits: "fileSize" });
       });
 
       writeStream.on('error', function(error) {
-        // trigger "file error" event
-        return cb({ writeStream: { filename: newFilePath, error: error} }, files);
+        file.truncated = true;
+        return finish({ writeStream: { filename: newFilePath, error: error} });
       });
 
     });
-
+    
     busboy.on('partsLimit', function() {
-      return cb({earlyAbort: "partsLimit"}, files);
+      return callBackOnce({ limits: "parts" }, files);
     });
 
     busboy.on('filesLimit', function() {
-      return cb({earlyAbort: "filesLimit"}, files);
+      return callBackOnce({ limits: "files" }, files);
     });
 
     busboy.on('fieldsLimit', function() {
-      return cb({earlyAbort: "fieldsLimit"}, files);
+      return callBackOnce({ limits: "fields" }, files);
     });
 
     busboy.on('finish', function() {
@@ -147,7 +177,16 @@ Multibyr.prototype.parse = function(req, res, cb) {
           files[field] = files[field][0];
         }
       }
-      return cb(null, files);
+      return callBackOnce(null, files);
+    });
+    
+    req.on('close', function() {
+      for (var field in files) {
+        if (files[field].length === 1) {
+          files[field] = files[field][0];
+        }
+      }
+      return callBackOnce(null, files);
     });
 
     req.pipe(busboy);
