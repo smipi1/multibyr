@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2018 Pieter E S Smith
+ * Copyright (C) 2018 Pieter E S Smith <https://github.com/smipi1>
  * This library is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
  * Software Foundation; version 2.1 or any later version.
