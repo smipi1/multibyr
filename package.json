@@ -19,7 +19,7 @@
     "express"
   ],
   "author": "Pieter Smith",
-  "license": "GPLv2",
+  "license": "LGPL-2.1-or-later",
   "bugs": {
     "url": "https://github.com/smipi1/multibyr/issues"
   },
